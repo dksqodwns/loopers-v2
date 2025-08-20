@@ -3,7 +3,6 @@ package com.loopers.application.order;
 import com.loopers.domain.order.OrderInfo;
 import com.loopers.domain.order.OrderService;
 import com.loopers.domain.order.event.OrderPlacedEvent;
-import com.loopers.domain.point.PointService;
 import com.loopers.domain.product.ProductCommand.GetProducts;
 import com.loopers.domain.product.ProductInfo;
 import com.loopers.domain.product.ProductService;
@@ -21,7 +20,6 @@ public class OrderFacade {
 
     private final OrderService orderService;
     private final ProductService productService;
-    private final PointService pointService;
     private final ProductStockService productStockService;
     private final ApplicationEventPublisher eventPublisher;
 

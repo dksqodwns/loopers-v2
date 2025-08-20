@@ -33,7 +33,7 @@ public class CardPayment extends Payment {
     private CardCompany cardCompany;
 
     @Convert(converter = CryptoConverter.class)
-    private String maskedCardNumber;
+    private String cardNumber;
 
     @Builder
     public CardPayment(
@@ -43,7 +43,7 @@ public class CardPayment extends Payment {
             String transactionKey,
             PaymentGateway paymentGateway,
             CardCompany cardCompany,
-            String maskedCardNumber
+            String cardNumber
     ) {
         super(userId, orderId, totalPrice);
 
@@ -56,6 +56,6 @@ public class CardPayment extends Payment {
         this.transactionKey = transactionKey;
         this.paymentGateway = paymentGateway;
         this.cardCompany = cardCompany;
-        this.maskedCardNumber = maskedCardNumber;
+        this.cardNumber = cardNumber;
     }
 }
