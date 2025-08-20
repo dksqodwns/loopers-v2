@@ -67,7 +67,7 @@ class PaymentTest {
                     () -> assertThat(payment.getOrderId()).isEqualTo(TEST_ORDER_ID),
                     () -> assertThat(payment.getTotalPrice()).isEqualTo(TEST_TOTAL_PRICE),
                     () -> assertThat(payment.getPaymentType()).isEqualTo(TEST_PAYMENT_TYPE),
-                    () -> assertThat(payment.getStatus()).isEqualTo(PaymentStatus.REQUSETED)
+                    () -> assertThat(payment.getStatus()).isEqualTo(PaymentStatus.REQUESTED)
             );
         }
     }

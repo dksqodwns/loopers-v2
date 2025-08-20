@@ -4,9 +4,12 @@ import com.loopers.domain.BaseEntity;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import jakarta.persistence.Column;
+import jakarta.persistence.DiscriminatorColumn;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.Inheritance;
+import jakarta.persistence.InheritanceType;
 import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -15,8 +18,10 @@ import lombok.NoArgsConstructor;
 @Getter
 @Entity
 @Table(name = "payments")
+@Inheritance(strategy = InheritanceType.JOINED)
+@DiscriminatorColumn(name = "payment_type")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class Payment extends BaseEntity {
+public abstract class Payment extends BaseEntity {
 
     @Column(name = "ref_user_id", nullable = false)
     private Long userId;
@@ -29,10 +34,7 @@ public class Payment extends BaseEntity {
     @Enumerated(EnumType.STRING)
     private PaymentStatus status;
 
-    @Enumerated(EnumType.STRING)
-    private PaymentType paymentType;
-
-    public Payment(Long userId, Long orderId, Long totalPrice, PaymentType paymentType) {
+    public Payment(Long userId, Long orderId, Long totalPrice) {
         if (userId == null) {
             throw new CoreException(ErrorType.BAD_REQUEST, "유저 id는 비어있을 수 없습니다.");
         }
@@ -45,14 +47,9 @@ public class Payment extends BaseEntity {
             throw new CoreException(ErrorType.BAD_REQUEST, "결제 금액은 음수 일 수 없습니다.");
         }
 
-        if (paymentType == null) {
-            throw new CoreException(ErrorType.BAD_REQUEST, "결제 수단은 비어있을 수 없습니다.");
-        }
-
         this.orderId = orderId;
         this.totalPrice = totalPrice;
-        this.status = PaymentStatus.REQUSETED;
-        this.paymentType = paymentType;
+        this.status = PaymentStatus.REQUESTED;
         this.userId = userId;
     }
 
