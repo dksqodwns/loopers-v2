@@ -6,7 +6,6 @@ import com.loopers.application.order.OrderResult;
 import com.loopers.domain.order.OrderCommand.GetOrders;
 import com.loopers.domain.order.OrderInfo;
 import com.loopers.domain.order.OrderService;
-import com.loopers.domain.payment.CardInfo;
 import com.loopers.domain.payment.PaymentService;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.order.OrderDto.V1.OrderDetailResponse;
@@ -34,7 +33,7 @@ public class OrderController implements OrderV1ApiSpec {
     public ApiResponse<Object> order(
             @RequestHeader("X-USER-ID") final Long userId,
             @RequestBody final OrderDto.V1.OrderRequest request) {
-        orderFacade.order(request.toCriteira(userId));
+        orderFacade.order(request.toCriteria(userId), request.toCardCriteria());
         return ApiResponse.success();
     }
 
@@ -57,13 +56,4 @@ public class OrderController implements OrderV1ApiSpec {
         return ApiResponse.success(OrderDetailResponse.from(orderResult));
     }
 
-    @PostMapping("/{orderId}/payments")
-    public ApiResponse<Object> requestPayment(
-            @RequestHeader("X-USER-ID") final Long userId,
-            @PathVariable final Long orderId,
-            @RequestBody final CardInfo cardInfo
-    ) {
-        paymentService.requestPayment(orderId, cardInfo);
-        return ApiResponse.success();
-    }
 }

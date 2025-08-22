@@ -35,4 +35,12 @@ public record PGPaymentDto() {
             String reason
     ) {
     }
+
+    public record CallBackRequest(
+            String transactionKey,
+            String orderId,
+            String status
+    ) {
+
+    }
 }

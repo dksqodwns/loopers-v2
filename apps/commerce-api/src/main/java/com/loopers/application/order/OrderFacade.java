@@ -3,6 +3,9 @@ package com.loopers.application.order;
 import com.loopers.domain.order.OrderInfo;
 import com.loopers.domain.order.OrderService;
 import com.loopers.domain.order.event.OrderPlacedEvent;
+import com.loopers.domain.payment.PaymentCommand;
+import com.loopers.domain.payment.PaymentCommand.Request;
+import com.loopers.domain.payment.PaymentService;
 import com.loopers.domain.product.ProductCommand.GetProducts;
 import com.loopers.domain.product.ProductInfo;
 import com.loopers.domain.product.ProductService;
@@ -21,16 +24,19 @@ public class OrderFacade {
     private final OrderService orderService;
     private final ProductService productService;
     private final ProductStockService productStockService;
-
+    private final PaymentService paymentService;
     @Transactional
-    public void order(final OrderCriteria.Order criteria) {
+    public void order(final OrderCriteria.Order criteria, final CardCriteria.Order cardCriteria) {
         final List<ProductInfo> productInfos = productService.getProducts(criteria.toProductCommand());
-
         final OrderInfo orderInfo = orderService.order(criteria.toCommand(productInfos));
 
         orderInfo.orderItems().forEach(orderItem ->
                 productStockService.decrease(new ProductStockCommand.Decrease(orderItem.productId(), orderItem.quantity()))
         );
+
+        Request paymentRequest = new Request(orderInfo.id(), criteria.userId(), orderInfo.totalPrice(), cardCriteria.cardCompany(), cardCriteria.cardNo());
+
+        paymentService.requestPayment(paymentRequest);
 
         /*
         * TODO: 주문 생성 이후 해야하는 것

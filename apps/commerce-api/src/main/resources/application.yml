@@ -39,13 +39,6 @@ pg:
   gateway:
     url: http://localhost:8082
 
-server:
-  callback-url: http://localhost:8080
-
-encryption:
-  key: ThisIsASecretKey
-
-
 resilience4j:
   circuitbreaker:
     instances:
@@ -60,10 +53,13 @@ resilience4j:
       payment-gateway:
         max-attempts: 3
         wait-duration: 200ms
-  timelimiter:
-    instances:
+
+feign:
+  client:
+    config:
       payment-gateway:
-        timeout-duration: 3s
+        connectTimeout: 1000
+        readTimeout: 3000
 ---
 spring:
   config:

@@ -1,9 +1,12 @@
 package com.loopers.interfaces.api.order;
 
+import com.loopers.application.order.CardCriteria;
+import com.loopers.application.order.OrderCriteria;
 import com.loopers.application.order.OrderCriteria.Order;
 import com.loopers.application.order.OrderCriteria.Order.OrderItem;
 import com.loopers.application.order.OrderResult;
 import com.loopers.domain.order.OrderInfo;
+import com.loopers.domain.payment.CardCompany;
 import java.util.List;
 
 public record OrderDto() {
@@ -16,13 +19,17 @@ public record OrderDto() {
             }
         }
 
-        public record OrderRequest(List<OrderItemRequest> items) {
-            public Order toCriteira(final Long userId) {
+        public record OrderRequest(List<OrderItemRequest> items, CardCompany cardCompany, String cardNo) {
+            public OrderCriteria.Order toCriteria(final Long userId) {
                 List<OrderItem> orderItems = this.items.stream()
                         .map(OrderItemRequest::toCriteria)
                         .toList();
 
-                return new Order(userId, orderItems);
+                return new OrderCriteria.Order(userId, orderItems);
+            }
+
+            public CardCriteria.Order toCardCriteria() {
+                return new CardCriteria.Order(cardCompany, cardNo);
             }
         }
 
@@ -53,7 +60,7 @@ public record OrderDto() {
                 List<OrderItemDetailResponse> items = orderResult.items().stream()
                         .map(item -> new OrderItemDetailResponse(item.productId(), item.name(), item.quantity(), item.price()))
                         .toList();
-                
+
                 return new OrderDetailResponse(
                         orderResult.id(),
                         orderResult.status().name(),
