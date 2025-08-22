@@ -21,7 +21,6 @@ public class OrderFacade {
     private final OrderService orderService;
     private final ProductService productService;
     private final ProductStockService productStockService;
-    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public void order(final OrderCriteria.Order criteria) {
@@ -33,7 +32,13 @@ public class OrderFacade {
                 productStockService.decrease(new ProductStockCommand.Decrease(orderItem.productId(), orderItem.quantity()))
         );
 
-        eventPublisher.publishEvent(new OrderPlacedEvent(orderInfo.id(), orderInfo.userId(), orderInfo.totalPrice()));
+        /*
+        * TODO: 주문 생성 이후 해야하는 것
+        *  1. 결제 요청: 결제에 대한 정보를 PG사에 찔러야 함 (FeignClient로 결제 요청 보냄)
+        *  2. 결제 콜백에 따른 Resilience 처리 (callback으로 받은 응답에 대한 처리)
+        *  3. 스케줄러 돌아서, 결제 처리 업데이트 안된건 확인 후 반영 (transactionKey로 확인 가능)
+        *  4. 결제가 안된 건은 실패 처리
+        * */
     }
 
     @Transactional(readOnly = true)

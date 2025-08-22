@@ -29,21 +29,13 @@ public class CardPayment extends Payment {
     @Column(nullable = false)
     private PaymentGateway paymentGateway;
 
-    @Enumerated(EnumType.STRING)
-    private CardCompany cardCompany;
-
-    @Convert(converter = CryptoConverter.class)
-    private String cardNumber;
-
     @Builder
     public CardPayment(
             Long userId,
             Long orderId,
             Long totalPrice,
             String transactionKey,
-            PaymentGateway paymentGateway,
-            CardCompany cardCompany,
-            String cardNumber
+            PaymentGateway paymentGateway
     ) {
         super(userId, orderId, totalPrice);
 
@@ -55,7 +47,5 @@ public class CardPayment extends Payment {
         }
         this.transactionKey = transactionKey;
         this.paymentGateway = paymentGateway;
-        this.cardCompany = cardCompany;
-        this.cardNumber = cardNumber;
     }
 }
