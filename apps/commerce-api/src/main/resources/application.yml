@@ -35,6 +35,31 @@ spring:
     activate:
       on-profile: local, test
 
+pg:
+  gateway:
+    url: http://localhost:8082
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      payment-gateway:
+        sliding-window-size: 10
+        sliding-window-type: count-based
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 1s
+        permitted-number-of-calls-in-half-open-state: 1
+  retry:
+    instances:
+      payment-gateway:
+        max-attempts: 3
+        wait-duration: 200ms
+
+feign:
+  client:
+    config:
+      payment-gateway:
+        connectTimeout: 1000
+        readTimeout: 3000
 ---
 spring:
   config:

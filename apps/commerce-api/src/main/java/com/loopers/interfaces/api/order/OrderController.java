@@ -6,7 +6,7 @@ import com.loopers.application.order.OrderResult;
 import com.loopers.domain.order.OrderCommand.GetOrders;
 import com.loopers.domain.order.OrderInfo;
 import com.loopers.domain.order.OrderService;
-import com.loopers.infrastructure.count.ProductCountRepositoryImpl;
+import com.loopers.domain.payment.PaymentService;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.order.OrderDto.V1.OrderDetailResponse;
 import com.loopers.interfaces.api.order.OrderDto.V1.OrdersResponse;
@@ -26,14 +26,14 @@ import org.springframework.web.bind.annotation.RestController;
 public class OrderController implements OrderV1ApiSpec {
     private final OrderFacade orderFacade;
     private final OrderService orderService;
-    private final ProductCountRepositoryImpl productCountRepositoryImpl;
+    private final PaymentService paymentService;
 
     @Override
     @PostMapping
     public ApiResponse<Object> order(
             @RequestHeader("X-USER-ID") final Long userId,
             @RequestBody final OrderDto.V1.OrderRequest request) {
-        orderFacade.order(request.toCriteira(userId));
+        orderFacade.order(request.toCriteria(userId), request.toCardCriteria());
         return ApiResponse.success();
     }
 
@@ -55,4 +55,5 @@ public class OrderController implements OrderV1ApiSpec {
         final OrderResult orderResult = orderFacade.getOrder(new GetOrder(userId, orderId));
         return ApiResponse.success(OrderDetailResponse.from(orderResult));
     }
+
 }
