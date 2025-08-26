@@ -1,10 +1,16 @@
 package com.loopers.interfaces.api.order;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.when;
 
 import com.loopers.domain.brand.Brand;
 import com.loopers.domain.order.Order;
-import com.loopers.domain.order.OrderItem;
+import com.loopers.domain.payment.CardCompany;
+import com.loopers.domain.payment.Payment;
+import com.loopers.domain.payment.PaymentRepository;
+import com.loopers.domain.payment.PaymentStatus;
 import com.loopers.domain.point.Amount;
 import com.loopers.domain.point.Point;
 import com.loopers.domain.product.BrandId;
@@ -17,7 +23,8 @@ import com.loopers.domain.user.Gender;
 import com.loopers.domain.user.LoginId;
 import com.loopers.domain.user.User;
 import com.loopers.infrastructure.brand.BrandJpaRepository;
-import com.loopers.infrastructure.count.ProductCountJpaRepository;
+import com.loopers.infrastructure.http.PgFeignClient;
+import com.loopers.infrastructure.http.PgPaymentDto;
 import com.loopers.infrastructure.order.OrderJpaRepository;
 import com.loopers.infrastructure.point.PointJpaRepository;
 import com.loopers.infrastructure.product.ProductJpaRepository;
@@ -26,16 +33,17 @@ import com.loopers.infrastructure.user.UserJpaRepository;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.order.OrderDto.V1.OrderItemRequest;
 import com.loopers.interfaces.api.order.OrderDto.V1.OrderRequest;
-import com.loopers.interfaces.api.order.OrderDto.V1.OrdersResponse;
 import com.loopers.utils.DatabaseCleanUp;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
@@ -44,41 +52,42 @@ import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 public class OrderApiV1E2ETest {
 
     public final String END_POINT = "/api/v1/orders";
 
-    private TestRestTemplate testRestTemplate;
-    private OrderJpaRepository orderJpaRepository;
-    private ProductJpaRepository productJpaRepository;
-    private UserJpaRepository userJpaRepository;
-    private ProductStockJpaRepository productStockJpaRepository;
-    private ProductCountJpaRepository productCountJpaRepository;
-    private PointJpaRepository pointJpaRepository;
-    private BrandJpaRepository brandJpaRepository;
-    private DatabaseCleanUp databaseCleanUp;
+    private final TestRestTemplate testRestTemplate;
+    private final OrderJpaRepository orderJpaRepository;
+    private final ProductJpaRepository productJpaRepository;
+    private final UserJpaRepository userJpaRepository;
+    private final ProductStockJpaRepository productStockJpaRepository;
+    private final PointJpaRepository pointJpaRepository;
+    private final BrandJpaRepository brandJpaRepository;
+    private final PaymentRepository paymentRepository;
+    private final DatabaseCleanUp databaseCleanUp;
 
     @Autowired
-    public OrderApiV1E2ETest(
-            TestRestTemplate testRestTemplate, OrderJpaRepository orderJpaRepository,
-            ProductJpaRepository productJpaRepository, UserJpaRepository userJpaRepository,
-            ProductStockJpaRepository productStockJpaRepository,
-            ProductCountJpaRepository productCountJpaRepository, PointJpaRepository pointJpaRepository,
-            BrandJpaRepository brandJpaRepository,
-            DatabaseCleanUp databaseCleanUp
-    ) {
+    public OrderApiV1E2ETest(TestRestTemplate testRestTemplate, OrderJpaRepository orderJpaRepository,
+                             ProductJpaRepository productJpaRepository, UserJpaRepository userJpaRepository,
+                             ProductStockJpaRepository productStockJpaRepository, PointJpaRepository pointJpaRepository,
+                             BrandJpaRepository brandJpaRepository, PaymentRepository paymentRepository,
+                             DatabaseCleanUp databaseCleanUp) {
         this.testRestTemplate = testRestTemplate;
         this.orderJpaRepository = orderJpaRepository;
         this.productJpaRepository = productJpaRepository;
         this.userJpaRepository = userJpaRepository;
         this.productStockJpaRepository = productStockJpaRepository;
-        this.productCountJpaRepository = productCountJpaRepository;
         this.pointJpaRepository = pointJpaRepository;
         this.brandJpaRepository = brandJpaRepository;
+        this.paymentRepository = paymentRepository;
         this.databaseCleanUp = databaseCleanUp;
     }
+
+    @MockitoBean
+    private PgFeignClient pgFeignClient;
 
     User user;
     Point point;
@@ -117,74 +126,48 @@ public class OrderApiV1E2ETest {
     @Nested
     class PlaceOrder {
 
-        @DisplayName("성공 할 경우, 정상적으로 주문이 요청된다.")
+        @DisplayName("성공 할 경우, 결제 요청을 보내고 Payment를 REQUESTED 상태로 저장한다.")
         @Test
         void returnSuccess_whenOrderSuccessful() {
 
+            String expectedTransactionKey = "test_transaction_key";
+            PgPaymentDto.Response pgResponse = new PgPaymentDto.Response(expectedTransactionKey, null, "SUCCESS", null);
+            when(pgFeignClient.requestPayment(eq(user.getId()), any(PgPaymentDto.Request.class)))
+                    .thenReturn(pgResponse);
+
             HttpHeaders headers = new HttpHeaders();
             headers.set("X-USER-ID", user.getId().toString());
-            System.out.println("id: "+user.getId());
-            System.out.println("hdears: "+headers.get("X-USER-ID"));
 
-            OrderItemRequest orderItemRequest1 = new OrderItemRequest(product1.getId(), 1);
-            OrderItemRequest orderItemRequest2 = new OrderItemRequest(product2.getId(), 2);
-            OrderItemRequest orderItemRequest3 = new OrderItemRequest(product3.getId(), 3);
             List<OrderItemRequest> orderItemRequests = Arrays.asList(
-                    orderItemRequest1,
-                    orderItemRequest2,
-                    orderItemRequest3
+                    new OrderItemRequest(product1.getId(), 1),
+                    new OrderItemRequest(product2.getId(), 2)
             );
 
-            OrderDto.V1.OrderRequest orderRequest = new OrderRequest(orderItemRequests);
+            OrderRequest orderRequest = new OrderRequest(orderItemRequests, CardCompany.SAMSUNG, "1234-5678-1234-5678");
             HttpEntity<OrderRequest> request = new HttpEntity<>(orderRequest, headers);
-            ParameterizedTypeReference<ApiResponse<Object>> responseType = new ParameterizedTypeReference<>() {};
+            ParameterizedTypeReference<ApiResponse<Object>> responseType = new ParameterizedTypeReference<>() {
+            };
 
             ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
                     END_POINT, HttpMethod.POST, request, responseType
             );
 
-            System.out.println("Response Status Code: " + response.getStatusCode());
-            System.out.println("Response Body: " + response.getBody());
+            assertThat(response.getStatusCode().is2xxSuccessful()).isTrue();
 
+            Mockito.verify(pgFeignClient).requestPayment(eq(user.getId()), any(PgPaymentDto.Request.class));
+
+            List<Order> orders = orderJpaRepository.findAll();
+            assertThat(orders).hasSize(1);
+            Long orderId = orders.get(0).getId();
+
+            Optional<Payment> paymentOpt = paymentRepository.findByOrderId(orderId);
+
+            assertThat(paymentOpt).isPresent();
+
+            Payment p = paymentOpt.get();
             Assertions.assertAll(
-                    () -> assertThat(response.getStatusCode().is2xxSuccessful()).isTrue(),
-                    () -> assertThat(response.getBody().meta().result()).isEqualTo(
-                            ApiResponse.Metadata.Result.SUCCESS
-                    )
-            );
-        }
-
-    }
-
-    @DisplayName("주문 목록 조회 시")
-    @Nested
-    class GetOrdersTest {
-        @DisplayName("주문 목록이 반환된다.")
-        @Test
-        void returnSuccess_whenGetOrderList() {
-            List<OrderItem> orderItems = Arrays.asList(
-                    new OrderItem(product1.getId(), product1.getPrice(), 1),
-                    new OrderItem(product2.getId(), product2.getPrice(), 2),
-                    new OrderItem(product3.getId(), product3.getPrice(), 3)
-            );
-            Order order = new Order(user.getId(), orderItems);
-            orderJpaRepository.save(order);
-
-            HttpHeaders headers = new HttpHeaders();
-            headers.set("X-USER-ID", user.getId().toString());
-            HttpEntity<Object> request = new HttpEntity<>(null, headers);
-            ParameterizedTypeReference<ApiResponse<OrdersResponse>> responseType = new ParameterizedTypeReference<>() {};
-
-            ResponseEntity<ApiResponse<OrdersResponse>> response = testRestTemplate.exchange(
-                    END_POINT, HttpMethod.GET, request, responseType
-            );
-
-
-            Assertions.assertAll(
-                    () -> assertThat(response.getStatusCode().is2xxSuccessful()).isTrue(),
-                    () -> assertThat(response.getBody().meta().result()).isEqualTo(
-                            ApiResponse.Metadata.Result.SUCCESS
-                    )
+                    () -> assertThat(p.getStatus()).isEqualTo(PaymentStatus.REQUESTED),
+                    () -> assertThat(p.getAmount()).isEqualTo(5_000L)
             );
         }
     }

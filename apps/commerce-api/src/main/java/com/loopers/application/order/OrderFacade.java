@@ -2,10 +2,10 @@ package com.loopers.application.order;
 
 import com.loopers.domain.order.OrderInfo;
 import com.loopers.domain.order.OrderService;
-import com.loopers.domain.payment.Payment;
+import com.loopers.domain.order.event.OrderPlacedEvent;
+import com.loopers.domain.payment.PaymentCommand;
+import com.loopers.domain.payment.PaymentCommand.Request;
 import com.loopers.domain.payment.PaymentService;
-import com.loopers.domain.payment.PaymentType;
-import com.loopers.domain.point.PointService;
 import com.loopers.domain.product.ProductCommand.GetProducts;
 import com.loopers.domain.product.ProductInfo;
 import com.loopers.domain.product.ProductService;
@@ -13,6 +13,7 @@ import com.loopers.domain.stock.ProductStockCommand;
 import com.loopers.domain.stock.ProductStockService;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,12 +23,10 @@ public class OrderFacade {
 
     private final OrderService orderService;
     private final ProductService productService;
-    private final PointService pointService;
     private final ProductStockService productStockService;
     private final PaymentService paymentService;
-
     @Transactional
-    public void order(final OrderCriteria.Order criteria) {
+    public void order(final OrderCriteria.Order criteria, final CardCriteria.Order cardCriteria) {
         final List<ProductInfo> productInfos = productService.getProducts(criteria.toProductCommand());
         final OrderInfo orderInfo = orderService.order(criteria.toCommand(productInfos));
 
@@ -35,11 +34,17 @@ public class OrderFacade {
                 productStockService.decrease(new ProductStockCommand.Decrease(orderItem.productId(), orderItem.quantity()))
         );
 
-        Payment payment = paymentService.request(orderInfo.id(), orderInfo.userId(), orderInfo.totalPrice(), PaymentType.POINT);
+        Request paymentRequest = new Request(orderInfo.id(), criteria.userId(), orderInfo.totalPrice(), cardCriteria.cardCompany(), cardCriteria.cardNo());
 
-        orderService.confirmOrder(orderInfo.id());
-        paymentService.pay(payment);
-        orderService.completeOrder(orderInfo.id());
+        paymentService.requestPayment(paymentRequest);
+
+        /*
+        * TODO: 주문 생성 이후 해야하는 것
+        *  1. 결제 요청: 결제에 대한 정보를 PG사에 찔러야 함 (FeignClient로 결제 요청 보냄)
+        *  2. 결제 콜백에 따른 Resilience 처리 (callback으로 받은 응답에 대한 처리)
+        *  3. 스케줄러 돌아서, 결제 처리 업데이트 안된건 확인 후 반영 (transactionKey로 확인 가능)
+        *  4. 결제가 안된 건은 실패 처리
+        * */
     }
 
     @Transactional(readOnly = true)
